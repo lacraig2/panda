@@ -4,15 +4,17 @@
 #include "panda/panda_api.h"
 #include "panda/plugin.h"
 
+int panda_virtual_memory_read_external(CPUState *env, target_ulong addr, uint8_t *buf, int len);
+int panda_virtual_memory_write_external(CPUState *env, target_ulong addr, uint8_t *buf, int len);
+int rr_get_guest_instr_count_external(void);
 void qemu_rr_quit_timers(void);
 //void qemu_cpu_kick(CPUState *cpu);
 void panda_register_callback_helper(void *plugin, panda_cb_type, panda_cb* cb);
-
-
+target_ulong panda_current_sp_external(CPUState *cpu);
+bool panda_in_kernel_external(CPUState *cpu);
 int panda_pre(int argc, char **argv, char **envp) {
     return main_aux(argc, argv, envp, PANDA_PRE);
 }
-
 int panda_init(int argc, char **argv, char **envp) {
     return main_aux(argc, argv, envp, PANDA_INIT);
 }
@@ -32,7 +34,7 @@ int panda_finish(void) {
 }
 
 int panda_init_plugin(char *plugin_name, char **plugin_args, uint32_t num_args) {
-    for (uint32_t i=0; i<num_args; i++) 
+    for (uint32_t i=0; i<num_args; i++)
         panda_add_arg(plugin_name, plugin_args[i]);
     char *plugin_path = panda_plugin_path((const char *) plugin_name);
     return panda_load_plugin(plugin_path, plugin_name);
@@ -43,13 +45,35 @@ void panda_register_callback_helper(void *plugin, panda_cb_type type, panda_cb* 
 	panda_register_callback(plugin, type, cb_copy);
 }
 
-// initiate replay 
+// initiate replay
 int panda_replay(char *replay_name) {
     rr_replay_requested = 1;
     rr_requested_name = strdup(replay_name);
     return 0;
 //    return panda_run();
 }
+
+int rr_get_guest_instr_count_external(void){
+	return rr_get_guest_instr_count();
+}
+
+int panda_virtual_memory_read_external(CPUState *env, target_ulong addr, uint8_t *buf, int len){
+	return panda_virtual_memory_read(env, addr, buf, len);
+}
+
+int panda_virtual_memory_write_external(CPUState *env, target_ulong addr, uint8_t *buf, int len){
+	return panda_virtual_memory_write(env, addr, buf, len);
+}
+
+bool panda_in_kernel_external(CPUState *cpu){
+	return panda_in_kernel(cpu);
+}
+
+target_ulong panda_current_sp_external(CPUState *cpu){
+	return panda_current_sp(cpu);
+}
+
+// we have this temporarily in callbacks.c -> to be moved here
 /*
 bool panda_load_external_plugin(const char *filename, const char *plugin_name, void *plugin_uuid, void *init_fn_ptr) {
     // don't load the same plugin twice
@@ -60,8 +84,8 @@ bool panda_load_external_plugin(const char *filename, const char *plugin_name, v
             return true;
         }
     }
-    // NB: this is really a list of plugins for which we have started loading 
-    // and not yet called init_plugin fn.  needed to avoid infinite loop with panda_require  
+    // NB: this is really a list of plugins for which we have started loading
+    // and not yet called init_plugin fn.  needed to avoid infinite loop with panda_require
     panda_plugins_loaded[nb_panda_plugins_loaded] = strdup(filename);
     nb_panda_plugins_loaded ++;
     void *plugin = plugin_uuid;//going to be a handle of some sort -> dlopen(filename, RTLD_NOW);
