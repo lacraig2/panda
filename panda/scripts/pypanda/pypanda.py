@@ -163,8 +163,6 @@ class Panda:
 		return self.libpanda.rr_get_guest_instr_count_external()
 
 	def require(self, plugin):
-		if not self.init_run:
-			self.init()
 		charptr = pyp.new("char[]", bytes(plugin,"utf-8"))
 		self.libpanda.panda_require(charptr)
 
